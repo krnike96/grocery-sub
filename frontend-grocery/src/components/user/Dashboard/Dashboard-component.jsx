@@ -1,12 +1,10 @@
-// src/components/user/Dashboard/Dashboard-component.jsx
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { ShoppingCart, Calendar, ArrowLeft } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
-import API from "../../../api/axios"; // Import the axios instance
-import { categories, offers } from "../../../data/groceryData"; // Keep categories and offers
+import API from "../../../api/axios";
+import { offers } from "../../../data/groceryData"; // Keep offers for the banner
 import {
   DashboardContainer,
   HeroSection,
@@ -23,31 +21,45 @@ import {
 
 const UserDashboard = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [dbProducts, setDbProducts] = useState([]); // State for backend data
+  const [dbProducts, setDbProducts] = useState([]);
+  const [dbCategories, setDbCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
-  // 1. Fetch live products from local MongoDB
+  // 1. Fetch live data from Backend
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
-        const { data } = await API.get('/products');
-        setDbProducts(data);
-        setLoading(false);
+        const [prodRes, catRes] = await Promise.all([
+          API.get("/products"),
+          API.get("/categories/get-categories"),
+        ]);
+
+        // Filter: Logic to only show categories that actually have items in them
+        const validCategories = catRes.data.filter((cat) =>
+          prodRes.data.some(
+            (prod) => prod.category.toLowerCase() === cat.name.toLowerCase()
+          )
+        );
+
+        setDbProducts(prodRes.data);
+        setDbCategories(validCategories);
       } catch (err) {
-        console.error("Error fetching products:", err);
-        toast.error("Failed to load products from server");
+        console.error("Fetch Error:", err);
+        toast.error("Failed to load store data");
+      } finally {
         setLoading(false);
       }
     };
-    fetchProducts();
+    fetchData();
   }, []);
 
-  // 2. Filter products based on selected category name (matches our Seeder data)
+  // 2. Filter products based on selected category from DB
   const filteredProducts = selectedCategory
-    ? dbProducts.filter((p) => 
-        selectedCategory.name.toLowerCase().includes(p.category.toLowerCase())
+    ? dbProducts.filter(
+        (p) => p.category.toLowerCase() === selectedCategory.name.toLowerCase()
       )
     : [];
 
@@ -57,21 +69,31 @@ const UserDashboard = () => {
       navigate("/login");
       return;
     }
-    const actionText = type === "sub" ? "Subscription started" : "Added to Cart";
+    const actionText =
+      type === "sub" ? "Subscription started" : "Added to Cart";
     toast.success(`${item.name}: ${actionText}`);
   };
 
-  if (loading) return <div style={{ padding: "40px", textAlign: "center" }}>Loading Groceries...</div>;
+  if (loading)
+    return (
+      <div style={{ padding: "100px", textAlign: "center" }}>
+        Loading Groceries...
+      </div>
+    );
 
   return (
     <DashboardContainer>
-      {/* Hero Section */}
+      {/* HERO BANNER - Always visible on the main page */}
       {!selectedCategory && (
         <HeroSection>
           <HeroText>
             <h1>Groceries Delivered in 10 Mins</h1>
-            <p>Use code <strong>{offers[0].code}</strong> to {offers[0].desc}</p>
-            <p style={{ marginTop: "10px", fontSize: "0.9rem" }}>Free Delivery above ₹499</p>
+            <p>
+              Use code <strong>{offers[0].code}</strong> to {offers[0].desc}
+            </p>
+            <p style={{ marginTop: "10px", fontSize: "0.9rem" }}>
+              Free Delivery above ₹499
+            </p>
           </HeroText>
           <div style={{ fontSize: "60px" }}>🔥</div>
         </HeroSection>
@@ -81,8 +103,11 @@ const UserDashboard = () => {
         <>
           <SectionTitle>Shop by Category</SectionTitle>
           <Grid>
-            {categories.map((cat) => (
-              <CategoryCard key={cat.id} onClick={() => setSelectedCategory(cat)}>
+            {dbCategories.map((cat) => (
+              <CategoryCard
+                key={cat._id}
+                onClick={() => setSelectedCategory(cat)}
+              >
                 <img src={cat.image} alt={cat.name} />
                 <h3>{cat.name}</h3>
                 <p>{cat.desc}</p>
@@ -91,9 +116,21 @@ const UserDashboard = () => {
           </Grid>
 
           <FooterInfo>
-            <div><h4>Company</h4><p>About Us</p><p>Team</p></div>
-            <div><h4>Contact</h4><p>Help & Support</p><p>Partner with us</p></div>
-            <div><h4>Legal</h4><p>Terms & Conditions</p><p>Privacy Policy</p></div>
+            <div>
+              <h4>Company</h4>
+              <p>About Us</p>
+              <p>Team</p>
+            </div>
+            <div>
+              <h4>Contact</h4>
+              <p>Help & Support</p>
+              <p>Partner with us</p>
+            </div>
+            <div>
+              <h4>Legal</h4>
+              <p>Terms & Conditions</p>
+              <p>Privacy Policy</p>
+            </div>
           </FooterInfo>
         </>
       ) : (
@@ -106,7 +143,7 @@ const UserDashboard = () => {
 
           <Grid>
             {filteredProducts.map((item) => (
-              <ProductCard key={item._id}> {/* Use MongoDB _id */}
+              <ProductCard key={item._id}>
                 <img src={item.image} alt={item.name} />
                 <ProductInfo>
                   <h3>{item.name}</h3>
@@ -116,25 +153,31 @@ const UserDashboard = () => {
                 </ProductInfo>
 
                 <ActionButtons>
-                  <button className="add-btn" onClick={() => handleAction(item, "once")}>
-                    <ShoppingCart size={16} style={{ display: "inline", marginRight: "5px" }} />
+                  <button
+                    className="add-btn"
+                    onClick={() => handleAction(item, "once")}
+                  >
+                    <ShoppingCart
+                      size={16}
+                      style={{ display: "inline", marginRight: "5px" }}
+                    />
                     ADD (One-time)
                   </button>
 
-                  <button className="sub-btn" onClick={() => handleAction(item, "sub")}>
-                    <Calendar size={16} style={{ display: "inline", marginRight: "5px" }} />
+                  <button
+                    className="sub-btn"
+                    onClick={() => handleAction(item, "sub")}
+                  >
+                    <Calendar
+                      size={16}
+                      style={{ display: "inline", marginRight: "5px" }}
+                    />
                     SUBSCRIBE (Daily)
                   </button>
                 </ActionButtons>
               </ProductCard>
             ))}
           </Grid>
-
-          {filteredProducts.length === 0 && (
-            <p style={{ textAlign: "center", color: "#888", padding: "20px" }}>
-              No products found in this category yet.
-            </p>
-          )}
         </>
       )}
     </DashboardContainer>

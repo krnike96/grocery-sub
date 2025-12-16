@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import API from "../../../api/axios";
 import {
   AdminDashboardContainer,
   TabContainer,
@@ -14,187 +15,270 @@ import {
   PrimaryButton,
 } from "./Dashboard-style";
 
-// Component for the "Add New Product" tab
-const AddProductTab = () => {
-  const [product, setProduct] = useState({
+const AdminDashboard = () => {
+  const [activeTab, setActiveTab] = useState("products");
+  const [categories, setCategories] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
+
+  // Form States
+  const [productData, setProductData] = useState({
     name: "",
-    category: "fruits",
     price: "",
-    unit: "kg",
+    category: "",
+    unit: "",
+    stock: "",
+    image: "",
     description: "",
-    imageUrl: "",
+  });
+  const [categoryData, setCategoryData] = useState({
+    name: "",
+    image: "",
+    desc: "",
   });
 
-  const handleChange = (e) => {
-    setProduct({ ...product, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    // --- Future Axios Call (Placeholder Logic) ---
-    console.log("Admin submitting new product:", product);
-
-    if (!product.name || !product.price) {
-      toast.error("Name and Price are required fields.");
-      return;
+  const fetchData = async () => {
+    try {
+      const [catRes, userRes] = await Promise.all([
+        API.get("/categories/get-categories"),
+        API.get("/users"),
+      ]);
+      setCategories(catRes.data);
+      setUsers(userRes.data);
+    } catch (err) {
+      toast.error("Error fetching admin data");
     }
-
-    toast.success(`Product "${product.name}" added successfully!`);
-
-    // Reset form after successful submission
-    setProduct({
-      name: "",
-      category: "fruits",
-      price: "",
-      unit: "kg",
-      description: "",
-      imageUrl: "",
-    });
-    // --- End Placeholder Logic ---
   };
 
-  return (
-    <FormCard>
-      <FormTitle>Add New Grocery Item</FormTitle>
-      <form onSubmit={handleSubmit}>
-        <FormGroup>
-          <Label htmlFor="name">Product Name</Label>
-          <Input
-            type="text"
-            id="name"
-            name="name"
-            placeholder="e.g., Organic Bananas"
-            value={product.name}
-            onChange={handleChange}
-            required
-          />
-        </FormGroup>
+  useEffect(() => {
+    fetchData();
+  }, [activeTab]);
 
-        <FormGroup>
-          <Label htmlFor="category">Category</Label>
-          <Select
-            id="category"
-            name="category"
-            value={product.category}
-            onChange={handleChange}
-            required
-          >
-            <option value="fruits">Fruits</option>
-            <option value="vegetables">Vegetables</option>
-            <option value="dairy">Dairy</option>
-            <option value="staples">Staples</option>
-          </Select>
-        </FormGroup>
+  const handleProductSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      // Logic: Ensure price and stock are numbers
+      const payload = {
+        ...productData,
+        price: Number(productData.price),
+        stock: Number(productData.stock),
+      };
+      await API.post("/products", payload);
+      toast.success("Product added successfully!");
+      setProductData({
+        name: "",
+        price: "",
+        category: "",
+        unit: "",
+        stock: "",
+        image: "",
+        description: "",
+      });
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to add product");
+    }
+  };
 
-        <FormGroup style={{ display: "flex", gap: "20px" }}>
-          <div style={{ flex: 3 }}>
-            <Label htmlFor="price">Price ($)</Label>
-            <Input
-              type="number"
-              id="price"
-              name="price"
-              placeholder="e.g., 2.99"
-              value={product.price}
-              onChange={handleChange}
-              required
-              step="0.01"
-            />
-          </div>
-          <div style={{ flex: 2 }}>
-            <Label htmlFor="unit">Unit</Label>
-            <Input
-              type="text"
-              id="unit"
-              name="unit"
-              placeholder="e.g., kg, dozen"
-              value={product.unit}
-              onChange={handleChange}
-              required
-            />
-          </div>
-        </FormGroup>
-
-        <FormGroup>
-          <Label htmlFor="imageUrl">Image URL (Placeholder)</Label>
-          <Input
-            type="url"
-            id="imageUrl"
-            name="imageUrl"
-            placeholder="http://example.com/image.jpg"
-            value={product.imageUrl}
-            onChange={handleChange}
-          />
-        </FormGroup>
-
-        <FormGroup>
-          <Label htmlFor="description">Description</Label>
-          <Textarea
-            id="description"
-            name="description"
-            placeholder="Short description of the product"
-            value={product.description}
-            onChange={handleChange}
-          />
-        </FormGroup>
-
-        <PrimaryButton type="submit">Save Product</PrimaryButton>
-      </form>
-    </FormCard>
-  );
-};
-
-// Main Admin Dashboard Component
-const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState("addProduct"); // 'addProduct', 'viewOrders', 'manageUsers'
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case "addProduct":
-        return <AddProductTab />;
-      case "viewOrders":
-        return (
-          <div>
-            <h2>View All Orders (Coming Soon)</h2>
-          </div>
-        );
-      case "manageUsers":
-        return (
-          <div>
-            <h2>Manage Users (Coming Soon)</h2>
-          </div>
-        );
-      default:
-        return <AddProductTab />;
+  const deleteUserHandler = async (id) => {
+    if (window.confirm("Permanent Action: Delete this user?")) {
+      try {
+        await API.delete(`/users/${id}`);
+        toast.success("User removed");
+        fetchData();
+      } catch (err) {
+        toast.error("Authority error: Action denied");
+      }
     }
   };
 
   return (
     <AdminDashboardContainer>
-      <FormTitle>Admin Control Panel</FormTitle>
-
       <TabContainer>
         <TabButton
-          $active={activeTab === "addProduct"}
-          onClick={() => setActiveTab("addProduct")}
+          active={activeTab === "products"}
+          onClick={() => setActiveTab("products")}
         >
           Add Product
         </TabButton>
         <TabButton
-          $active={activeTab === "viewOrders"}
-          onClick={() => setActiveTab("viewOrders")}
+          active={activeTab === "categories"}
+          onClick={() => setActiveTab("categories")}
         >
-          View Orders
+          Manage Categories
         </TabButton>
         <TabButton
-          $active={activeTab === "manageUsers"}
-          onClick={() => setActiveTab("manageUsers")}
+          active={activeTab === "users"}
+          onClick={() => setActiveTab("users")}
         >
-          Manage Users
+          Authority (Users & Subs)
         </TabButton>
       </TabContainer>
 
-      {renderContent()}
+      {activeTab === "products" && (
+        <FormCard>
+          <FormTitle>Add New Grocery Item</FormTitle>
+          <form onSubmit={handleProductSubmit}>
+            <FormGroup>
+              <Label>Product Name</Label>
+              <Input
+                type="text"
+                value={productData.name}
+                onChange={(e) =>
+                  setProductData({ ...productData, name: e.target.value })
+                }
+                required
+              />
+            </FormGroup>
+            <FormGroup>
+              <Label>Category</Label>
+              <Select
+                value={productData.category}
+                onChange={(e) =>
+                  setProductData({ ...productData, category: e.target.value })
+                }
+                required
+              >
+                <option value="">Select Existing Category</option>
+                {categories.map((c) => (
+                  <option key={c._id} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </FormGroup>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <FormGroup style={{ flex: 1 }}>
+                <Label>Price (₹)</Label>
+                <Input
+                  type="number"
+                  value={productData.price}
+                  onChange={(e) =>
+                    setProductData({ ...productData, price: e.target.value })
+                  }
+                  required
+                />
+              </FormGroup>
+              <FormGroup style={{ flex: 1 }}>
+                <Label>Unit</Label>
+                <Input
+                  type="text"
+                  value={productData.unit}
+                  onChange={(e) =>
+                    setProductData({ ...productData, unit: e.target.value })
+                  }
+                  required
+                />
+              </FormGroup>
+            </div>
+            <FormGroup>
+              <Label>Initial Stock</Label>
+              <Input
+                type="number"
+                value={productData.stock}
+                onChange={(e) =>
+                  setProductData({ ...productData, stock: e.target.value })
+                }
+                required
+              />
+            </FormGroup>
+            <FormGroup>
+              <Label>Image URL</Label>
+              <Input
+                type="text"
+                value={productData.image}
+                onChange={(e) =>
+                  setProductData({ ...productData, image: e.target.value })
+                }
+                required
+              />
+            </FormGroup>
+            <PrimaryButton type="submit">Save Product</PrimaryButton>
+          </form>
+        </FormCard>
+      )}
+
+      {activeTab === "categories" && (
+        <FormCard>
+          <FormTitle>Create Category</FormTitle>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              API.post("/categories", categoryData).then(() => {
+                toast.success("Created");
+                fetchData();
+              });
+            }}
+          >
+            <FormGroup>
+              <Label>Category Name</Label>
+              <Input
+                type="text"
+                value={categoryData.name}
+                onChange={(e) =>
+                  setCategoryData({ ...categoryData, name: e.target.value })
+                }
+                required
+              />
+            </FormGroup>
+            <FormGroup>
+              <Label>Image URL</Label>
+              <Input
+                type="text"
+                value={categoryData.image}
+                onChange={(e) =>
+                  setCategoryData({ ...categoryData, image: e.target.value })
+                }
+                required
+              />
+            </FormGroup>
+            <PrimaryButton type="submit">Add Category</PrimaryButton>
+          </form>
+        </FormCard>
+      )}
+
+      {activeTab === "users" && (
+        <FormCard>
+          <FormTitle>Authority Panel</FormTitle>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ textAlign: "left", background: "#f4f4f4" }}>
+                <th style={{ padding: "10px" }}>User</th>
+                <th style={{ padding: "10px" }}>Role</th>
+                <th style={{ padding: "10px" }}>Authority Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u._id} style={{ borderBottom: "1px solid #eee" }}>
+                  <td style={{ padding: "10px" }}>
+                    {u.name}
+                    <br />
+                    <small>{u.email}</small>
+                  </td>
+                  <td style={{ padding: "10px" }}>
+                    {u.isAdmin ? "👑 Admin" : "User"}
+                  </td>
+                  <td style={{ padding: "10px" }}>
+                    <button
+                      onClick={() => deleteUserHandler(u._id)}
+                      style={{
+                        background: "#ff4d4d",
+                        color: "white",
+                        border: "none",
+                        padding: "5px 10px",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Delete User
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </FormCard>
+      )}
     </AdminDashboardContainer>
   );
 };
