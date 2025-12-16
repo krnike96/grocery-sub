@@ -1,25 +1,24 @@
-// backend-grocery/server.js
-
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import connectDB from "./config/db.js";
+import productRoutes from "./routes/productRoutes.js";
 
-// Load env variables
 dotenv.config();
 
+connectDB();
+
 const app = express();
-const PORT = process.env.PORT || 5000;
+app.use(express.json());
+app.use(cors());
 
-// Middleware
-app.use(express.json()); // Parses incoming JSON requests
-app.use(cors()); // Allows frontend to access backend
+app.use("/api/products", productRoutes);
 
-// Basic Route for Testing
 app.get("/", (req, res) => {
-  res.send("API is running...");
+  res.send("API is running and Database is connected...");
 });
 
-// Start Server
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
