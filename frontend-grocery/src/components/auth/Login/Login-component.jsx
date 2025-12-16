@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useAuth } from "../../../context/AuthContext"; // Import useAuth
 import {
   AuthContainer,
   AuthCard,
@@ -17,7 +18,9 @@ const LoginPage = () => {
     email: "",
     password: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { login } = useAuth(); // Destructure login from context
 
   const { email, password } = formData;
 
@@ -25,22 +28,25 @@ const LoginPage = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
 
-    // --- Future Axios Call (Placeholder Logic) ---
-    console.log("Attempting login with:", formData);
+    try {
+      const userData = await login(email, password);
+      toast.success(`Welcome back, ${userData.name}!`);
 
-    if (email === "admin@test.com" && password === "password") {
-      toast.success("Login Successful! Redirecting to Admin Dashboard.");
-      
-    } else if (email === "user@test.com" && password === "password") {
-      toast.success("Welcome back! Redirecting to Groceries.");
-      // navigate('/');
-    } else {
-      toast.error("Invalid Credentials. Please check email and password.");
+      // Redirect based on role
+      if (userData.isAdmin) {
+        navigate("/admin");
+      } else {
+        navigate("/");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Invalid email or password");
+    } finally {
+      setIsSubmitting(false);
     }
-    // --- End Placeholder Logic ---
   };
 
   return (
@@ -74,7 +80,9 @@ const LoginPage = () => {
             />
           </FormGroup>
 
-          <PrimaryButton type="submit">Login</PrimaryButton>
+          <PrimaryButton type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Logging in..." : "Login"}
+          </PrimaryButton>
         </form>
 
         <HelperText>

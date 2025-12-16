@@ -1,88 +1,65 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
-// We will use axios in the future, but import is here for context
-// import axios from 'axios'; 
+import React, { createContext, useContext, useState, useEffect } from "react";
+import API from "../api/axios";
 
-// 1. Create the Context
-const AuthContext = createContext(null);
+const AuthContext = createContext();
 
-// 2. Custom Hook to use the Auth Context easily
-export const useAuth = () => {
-    return useContext(AuthContext);
-};
-
-// 3. Auth Provider Component
 export const AuthProvider = ({ children }) => {
-    // State to hold user info (null if logged out)
-    const [user, setUser] = useState(null);
-    // State to hold loading status (e.g., when checking token)
-    const [isLoading, setIsLoading] = useState(true); 
-    
-    // Derived state for easy access
-    const isAuthenticated = !!user;
-    const userRole = user ? user.role : null;
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        // --- Future: Check for existing JWT in LocalStorage on load ---
-        const token = localStorage.getItem('token');
-        const storedRole = localStorage.getItem('role'); 
-        
-        if (token && storedRole) {
-            // Simulate successful token check.
-            setUser({ 
-                id: '123', 
-                name: 'Test User', 
-                role: storedRole,
-                token: token
-            });
-            // Toast removed here to prevent issues on initial render
-            // toast.info(`Welcome back, ${storedRole.toUpperCase()}!`); 
-        }
-        
-        // Use a timeout to ensure the state updates safely after the initial mount
-        const timer = setTimeout(() => {
-            setIsLoading(false);
-        }, 50); // Small delay, just enough to ensure render completion
-
-        return () => clearTimeout(timer); // Cleanup function
-
-    }, []);
-
-
-    // Function to handle login (to be called by Login-component)
-    const login = (userData, token) => {
-        // This function will be called AFTER a successful backend API response
-        localStorage.setItem('token', token);
-        localStorage.setItem('role', userData.role);
-        setUser({ ...userData, token });
-        toast.success(`Logged in as ${userData.role.toUpperCase()}`);
-    };
-
-    // Function to handle logout
-    const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('role');
-        setUser(null);
-        toast.info("You have been logged out.");
-    };
-
-    const value = {
-        user,
-        isAuthenticated,
-        userRole,
-        login,
-        logout,
-        isLoading
-    };
-
-    if (isLoading) {
-        // Simple loading screen or spinner while checking local storage
-        return <div style={{ textAlign: 'center', padding: '100px' }}>Loading application...</div>;
+  // Check for saved user session on app load
+  useEffect(() => {
+    const savedUser = localStorage.getItem("userInfo");
+    if (savedUser) {
+      const parsedUser = JSON.parse(savedUser);
+      setUser(parsedUser);
+      // Set the token for all future API calls
+      API.defaults.headers.common[
+        "Authorization"
+      ] = `Bearer ${parsedUser.token}`;
     }
+    setLoading(false);
+  }, []);
 
-    return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
-    );
+  // Real Login API Call
+  const login = async (email, password) => {
+    const { data } = await API.post("/users/login", { email, password });
+    setUser(data);
+    localStorage.setItem("userInfo", JSON.stringify(data));
+    API.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
+    return data;
+  };
+
+  // Real Register API Call
+  const register = async (name, email, password) => {
+    const { data } = await API.post("/users", { name, email, password });
+    setUser(data);
+    localStorage.setItem("userInfo", JSON.stringify(data));
+    API.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
+    return data;
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem("userInfo");
+    delete API.defaults.headers.common["Authorization"];
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        logout,
+        isAuthenticated: !!user,
+        userRole: user?.isAdmin ? "admin" : "user", // Basic role mapping
+        loading,
+      }}
+    >
+      {!loading && children}
+    </AuthContext.Provider>
+  );
 };
+
+export const useAuth = () => useContext(AuthContext);

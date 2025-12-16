@@ -1,18 +1,21 @@
+import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import styled from "styled-components";
 
-// --- PLACEHOLDERS (We will replace these later) ---
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+
 import Navbar from "./components/layout/Navbar/Navbar-component";
-// import LoginPage from "./components/auth/Login/Login-component";
 import RegisterPage from "./components/auth/Register/Register-component";
 import LoginPage from "./components/auth/Login/Login-component";
-import UserDashboard from './components/user/Dashboard/Dashboard-component.jsx';
-import AdminDashboard from './components/admin/Dashboard/Dashboard-component.jsx';
-import DeliveryDashboard from './components/delivery/Dashboard/Dashboard-component.jsx';
-import CheckoutPage from './components/cart/Checkout/Checkout-component.jsx';
+import UserDashboard from "./components/user/Dashboard/Dashboard-component.jsx";
+import AdminDashboard from "./components/admin/Dashboard/Dashboard-component.jsx";
+import DeliveryDashboard from "./components/delivery/Dashboard/Dashboard-component.jsx";
+import CheckoutPage from "./components/cart/Checkout/Checkout-component.jsx";
 
-// Create a simple styled layout container
+// --- STYLED COMPONENTS (Preserved) ---
 const Layout = styled.div`
   display: flex;
   flex-direction: column;
@@ -21,36 +24,62 @@ const Layout = styled.div`
 
 const MainContent = styled.main`
   flex-grow: 1;
-  padding: 20px 0; /* Add vertical padding */
+  padding: 20px 0;
   width: 90%;
   max-width: 1200px;
-  margin: 0 auto; /* Center the content */
+  margin: 0 auto;
 `;
-// --- END PLACEHOLDERS ---
 
 function App() {
   return (
-    <Router>
-      <Layout>
-        {/* Navbar will be present on all pages */}
-        <Navbar />
+    <AuthProvider>
+      <Router>
+        <Layout>
+          <Navbar />
 
-        <MainContent>
-          <Routes>
-            {/* Routes */}
-            <Route path="/login" element={< LoginPage/>} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/cart" element={<CheckoutPage />} />
-            <Route path="/" element={<UserDashboard />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/delivery" element={<DeliveryDashboard />} />
-          </Routes>
-        </MainContent>
+          <MainContent>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/" element={<UserDashboard />} />
 
-        {/* Toast notifications container */}
-        <ToastContainer position="top-center" autoClose={3000} />
-      </Layout>
-    </Router>
+              {/* Protected User Routes */}
+              <Route
+                path="/cart"
+                element={
+                  <ProtectedRoute>
+                    <CheckoutPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Protected Admin Routes */}
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute isAdmin={true}>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Protected Delivery Routes */}
+              <Route
+                path="/delivery"
+                element={
+                  <ProtectedRoute>
+                    <DeliveryDashboard />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </MainContent>
+
+          <ToastContainer position="top-center" autoClose={3000} />
+        </Layout>
+      </Router>
+    </AuthProvider>
   );
 }
 

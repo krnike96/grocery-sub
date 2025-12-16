@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { useAuth } from "../../../context/AuthContext"; // Import useAuth
 import {
   AuthContainer,
   AuthCard,
@@ -11,16 +12,18 @@ import {
   Select,
   PrimaryButton,
   HelperText,
-} from "./Register-style"; // Note the import path
+} from "./Register-style";
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    role: "user", // Default role for new signups
+    role: "user",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { register } = useAuth(); // Destructure register from context
 
   const { name, email, password, role } = formData;
 
@@ -28,25 +31,24 @@ const RegisterPage = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // --- Future Axios Call (Placeholder Logic) ---
-    console.log("Attempting registration with:", formData);
-
-    // Simple validation check
     if (password.length < 6) {
       toast.error("Password must be at least 6 characters long.");
       return;
     }
 
-    // Simulate successful registration
-    toast.success(
-      `Registration successful as a ${role.toUpperCase()}! Redirecting to login.`
-    );
-    // Future: API call here.
-    // navigate('/login');
-    // --- End Placeholder Logic ---
+    setIsSubmitting(true);
+    try {
+      await register(name, email, password);
+      toast.success("Account created successfully!");
+      navigate("/"); // Redirect to dashboard after signup
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Registration failed");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -93,6 +95,7 @@ const RegisterPage = () => {
             />
           </FormGroup>
 
+          {/* Role is visible for initial setup/demo, usually hidden in production */}
           <FormGroup>
             <Label htmlFor="role">Account Role</Label>
             <Select
@@ -103,15 +106,14 @@ const RegisterPage = () => {
               required
             >
               <option value="user">Customer (Order Groceries)</option>
-              <option value="delivery">Delivery Person (Fulfill Orders)</option>
-              {/* Admin role is typically restricted, but included for initial setup */}
-              <option value="admin">
-                Administrator (Manage Products/Users)
-              </option>
+              <option value="delivery">Delivery Person</option>
+              <option value="admin">Administrator</option>
             </Select>
           </FormGroup>
 
-          <PrimaryButton type="submit">Register</PrimaryButton>
+          <PrimaryButton type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Creating Account..." : "Register"}
+          </PrimaryButton>
         </form>
 
         <HelperText>
