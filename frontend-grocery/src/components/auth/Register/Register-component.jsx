@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { useAuth } from "../../../context/AuthContext"; // Import useAuth
+import { useAuth } from "../../../context/AuthContext";
 import {
   AuthContainer,
   AuthCard,
@@ -20,12 +20,15 @@ const RegisterPage = () => {
     email: "",
     password: "",
     role: "user",
+    address: "",
+    city: "",
+    postalCode: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { register } = useAuth(); // Destructure register from context
+  const { register } = useAuth();
 
-  const { name, email, password, role } = formData;
+  const { name, email, password, role, address, city, postalCode } = formData;
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -39,11 +42,27 @@ const RegisterPage = () => {
       return;
     }
 
+    // Validation for customer address
+    if (role === "user" && (!address || !city || !postalCode)) {
+      toast.error("Please provide complete address details.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await register(name, email, password);
+      // Pass the role and address to the register function
+      // If role is admin, isAdmin will be true; else false.
+      const registrationData = {
+        name,
+        email,
+        password,
+        isAdmin: role === "admin",
+        defaultAddress: role === "user" ? { address, city, postalCode } : null,
+      };
+
+      await register(registrationData);
       toast.success("Account created successfully!");
-      navigate("/"); // Redirect to dashboard after signup
+      navigate("/");
     } catch (err) {
       toast.error(err.response?.data?.message || "Registration failed");
     } finally {
@@ -95,7 +114,6 @@ const RegisterPage = () => {
             />
           </FormGroup>
 
-          {/* Role is visible for initial setup/demo, usually hidden in production */}
           <FormGroup>
             <Label htmlFor="role">Account Role</Label>
             <Select
@@ -106,10 +124,53 @@ const RegisterPage = () => {
               required
             >
               <option value="user">Customer (Order Groceries)</option>
-              <option value="delivery">Delivery Person</option>
               <option value="admin">Administrator</option>
             </Select>
           </FormGroup>
+
+          {/* Conditional Address Fields for Customers only */}
+          {role === "user" && (
+            <>
+              <FormGroup>
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  type="text"
+                  id="address"
+                  name="address"
+                  placeholder="House No / Street"
+                  value={address}
+                  onChange={handleChange}
+                  required
+                />
+              </FormGroup>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <FormGroup style={{ flex: 1 }}>
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    type="text"
+                    id="city"
+                    name="city"
+                    placeholder="City"
+                    value={city}
+                    onChange={handleChange}
+                    required
+                  />
+                </FormGroup>
+                <FormGroup style={{ flex: 1 }}>
+                  <Label htmlFor="postalCode">Pincode</Label>
+                  <Input
+                    type="text"
+                    id="postalCode"
+                    name="postalCode"
+                    placeholder="Pincode"
+                    value={postalCode}
+                    onChange={handleChange}
+                    required
+                  />
+                </FormGroup>
+              </div>
+            </>
+          )}
 
           <PrimaryButton type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Creating Account..." : "Register"}

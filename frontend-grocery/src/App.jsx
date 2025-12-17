@@ -14,6 +14,7 @@ import UserDashboard from "./components/user/Dashboard/Dashboard-component.jsx";
 import AdminDashboard from "./components/admin/Dashboard/Dashboard-component.jsx";
 import DeliveryDashboard from "./components/delivery/Dashboard/Dashboard-component.jsx";
 import CheckoutPage from "./components/cart/Checkout/Checkout-component.jsx";
+import { CartProvider } from "./context/CartContext.jsx";
 
 // --- STYLED COMPONENTS (Preserved) ---
 const Layout = styled.div`
@@ -33,6 +34,7 @@ const MainContent = styled.main`
 function App() {
   return (
     <AuthProvider>
+      <CartProvider>
       <Router>
         <Layout>
           <Navbar />
@@ -79,6 +81,7 @@ function App() {
           <ToastContainer position="top-center" autoClose={3000} />
         </Layout>
       </Router>
+      </CartProvider>
     </AuthProvider>
   );
 }

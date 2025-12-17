@@ -26,19 +26,22 @@ export const getProductById = async (req, res) => {
 };
 
 export const deleteProduct = async (req, res) => {
-  const product = await Product.findById(req.params.id);
-  if (product) {
-    await product.deleteOne();
-    res.json({ message: "Product removed" });
-  } else {
-    res.status(404).json({ success: false, message: "Product not found" });
+  try {
+    const product = await Product.findById(req.params.id);
+    if (product) {
+      await product.deleteOne();
+      res.json({ message: "Product removed" });
+    } else {
+      res.status(404).json({ success: false, message: "Product not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
 export const createProduct = async (req, res) => {
   try {
     const { name, price, image, category, unit, stock, description } = req.body;
-
     const product = new Product({
       name,
       price,
@@ -47,18 +50,38 @@ export const createProduct = async (req, res) => {
       unit: unit || "1 unit",
       stock: stock || 0,
       description: description || "",
-      // Assigning a dummy user ID for now since we haven't implemented auth middleware on this route yet
       user: "6418ae99b01f348b2f964444",
     });
-
     const createdProduct = await product.save();
     res.status(201).json(createdProduct);
   } catch (error) {
-    res
-      .status(400)
-      .json({
-        success: false,
-        message: error.message || "Invalid product data",
-      });
+    res.status(400).json({
+      success: false,
+      message: error.message || "Invalid product data",
+    });
+  }
+};
+
+export const updateProduct = async (req, res) => {
+  try {
+    const { name, price, description, image, category, stock, unit } = req.body;
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+      product.name = name || product.name;
+      product.price = price || product.price;
+      product.description = description || product.description;
+      product.image = image || product.image;
+      product.category = category || product.category;
+      product.stock = stock !== undefined ? stock : product.stock;
+      product.unit = unit || product.unit;
+
+      const updatedProduct = await product.save();
+      res.json(updatedProduct);
+    } else {
+      res.status(404).json({ message: "Product not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

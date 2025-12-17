@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext.jsx";
+import { useCart } from "../../../context/CartContext.jsx";
 import {
   NavContainer,
   NavWrapper,
@@ -27,6 +28,7 @@ import {
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { isAuthenticated, userRole, logout } = useAuth();
+  const { cartCount } = useCart();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
 
@@ -97,7 +99,7 @@ const Navbar = () => {
                     <ShoppingCart size={20} />
                     Cart
                     {/* Hardcoded 2 for demo, connect to CartContext later */}
-                    <CartBadge>2</CartBadge>
+                    <CartBadge>{cartCount}</CartBadge>
                   </Link>
                 </NavItem>
               )}

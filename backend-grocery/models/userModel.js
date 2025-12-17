@@ -21,6 +21,32 @@ const userSchema = mongoose.Schema(
       required: true,
       default: false,
     },
+    defaultAddress: {
+      address: { type: String, default: "" },
+      city: { type: String, default: "" },
+      postalCode: { type: String, default: "" },
+    },
+    cart: {
+      orderItems: [
+        {
+          product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+          name: String,
+          price: Number,
+          image: String,
+          qty: Number,
+          stock: Number,
+        },
+      ],
+      subscriptions: [
+        {
+          product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+          name: String,
+          price: Number,
+          image: String,
+          frequency: { type: String, default: "Daily" },
+        },
+      ],
+    },
   },
   {
     timestamps: true,

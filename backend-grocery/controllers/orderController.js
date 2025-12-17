@@ -1,11 +1,12 @@
 import Order from "../models/orderModel.js";
+import Product from "../models/productModel.js";
 import Subscription from "../models/subscriptionModel.js";
 
-// @desc    Create new order and/or subscription
-// @route   POST /api/orders
-// @access  Private
 export const addOrderItems = async (req, res) => {
   try {
+    if (!req.body) {
+      return res.status(400).json({ message: "No request body found" });
+    }
     const {
       orderItems,
       subscriptions,
@@ -14,48 +15,48 @@ export const addOrderItems = async (req, res) => {
       paymentMethod,
     } = req.body;
 
-    // 1. Validation Logic
     if (
       (!orderItems || orderItems.length === 0) &&
       (!subscriptions || subscriptions.length === 0)
     ) {
-      return res
-        .status(400)
-        .json({ message: "No items or subscriptions provided" });
+      return res.status(400).json({ message: "No items provided" });
     }
 
-    if (!shippingAddress || !shippingAddress.address || !shippingAddress.city) {
-      return res
-        .status(400)
-        .json({ message: "Shipping address is incomplete" });
-    }
-
-    // 2. Process One-time Orders
-    let createdOrder = null;
+    // 1. Verify Stock for One-Time Items BEFORE creating order
     if (orderItems && orderItems.length > 0) {
-      const order = new Order({
-        user: req.user._id,
-        orderItems: orderItems.map((item) => ({
-          name: item.name,
-          qty: item.qty,
-          image: item.image,
-          price: item.price,
-          product: item.product || item._id, // Support both formats
-        })),
-        shippingAddress,
-        paymentMethod: paymentMethod || "Card",
-        totalPrice: totalPrice || 0,
-        isPaid: true,
-        paidAt: Date.now(),
-      });
-      createdOrder = await order.save();
+      for (const item of orderItems) {
+        const product = await Product.findById(item.product);
+        if (!product) {
+          return res
+            .status(404)
+            .json({ message: `Product not found: ${item.name}` });
+        }
+        if (product.stock < item.qty) {
+          return res.status(400).json({
+            message: `Insufficient stock for ${item.name}. Only ${product.stock} left.`,
+          });
+        }
+      }
     }
 
-    // 3. Process Subscriptions
+    const order = new Order({
+      user: req.user._id,
+      orderItems,
+      shippingAddress,
+      paymentMethod,
+      totalPrice,
+      isPaid: true,
+      paidAt: Date.now(),
+      status: "Pending",
+    });
+
+    const createdOrder = await order.save();
+
+    // 2. Handle Subscriptions: Insert into Subscription collection
     if (subscriptions && subscriptions.length > 0) {
       const subDocs = subscriptions.map((sub) => ({
         user: req.user._id,
-        product: sub.product || sub._id,
+        product: sub.product,
         frequency: sub.frequency || "Daily",
         status: "Active",
         startDate: new Date(),
@@ -63,15 +64,80 @@ export const addOrderItems = async (req, res) => {
       await Subscription.insertMany(subDocs);
     }
 
-    res.status(201).json({
-      success: true,
-      order: createdOrder,
-      subscriptionCount: subscriptions ? subscriptions.length : 0,
-    });
+    res.status(201).json({ success: true, order: createdOrder });
   } catch (error) {
-    console.error("Order Controller Error:", error);
-    res
-      .status(500)
-      .json({ message: "Internal Server Error", error: error.message });
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get all orders (Admin)
+export const getOrders = async (req, res) => {
+  const orders = await Order.find({}).populate("user", "id name email");
+  res.json(orders);
+};
+
+export const updateOrderStatus = async (req, res) => {
+  const order = await Order.findById(req.params.id);
+
+  if (order) {
+    order.status = req.body.status || order.status;
+
+    if (req.body.status === "Delivered" && !order.isDelivered) {
+      order.isDelivered = true;
+      order.deliveredAt = Date.now();
+
+      for (const item of order.orderItems) {
+        const product = await Product.findById(item.product);
+        if (product) {
+          product.stock = product.stock - item.qty;
+          await product.save();
+        }
+      }
+    }
+
+    const updatedOrder = await order.save();
+    res.json(updatedOrder);
+  } else {
+    res.status(404).json({ message: "Order not found" });
+  }
+};
+
+//   Delete order (Admin)
+export const deleteOrder = async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  if (order) {
+    await order.deleteOne();
+    res.json({ message: "Order removed" });
+  } else {
+    res.status(404).json({ message: "Order not found" });
+  }
+};
+
+export const getMySubscriptions = async (req, res) => {
+  try {
+    const subs = await Subscription.find({ user: req.user._id }).populate(
+      "product"
+    );
+    res.json(subs);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch subscriptions" });
+  }
+};
+
+export const cancelSubscription = async (req, res) => {
+  try {
+    const sub = await Subscription.findById(req.params.id);
+
+    if (sub && sub.user.toString() === req.user._id.toString()) {
+      // Changed from updating status to actual deletion for synchronization
+      await sub.deleteOne();
+      res.json({ message: "Subscription removed and cancelled successfully" });
+    } else {
+      res
+        .status(404)
+        .json({ message: "Subscription not found or unauthorized" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

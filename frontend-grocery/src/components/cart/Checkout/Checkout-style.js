@@ -1,8 +1,10 @@
 import styled from "styled-components";
-import { PrimaryButton } from "../../auth/Login/Login-style"; // Reusing the primary button style
+import { PrimaryButton } from "../../auth/Login/Login-style";
 
 export const CheckoutContainer = styled.div`
   padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 `;
 
 export const Title = styled.h1`
@@ -12,6 +14,10 @@ export const Title = styled.h1`
   border-bottom: 3px solid var(--color-primary);
   display: inline-block;
   padding-bottom: 5px;
+
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
 `;
 
 export const ContentWrapper = styled.div`
@@ -33,10 +39,10 @@ export const SummaryCard = styled.div`
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-light);
   padding: 25px;
-  height: fit-content; /* Ensure it doesn't stretch */
+  height: fit-content;
 
   @media (max-width: 992px) {
-    order: -1; /* Move summary to the top on mobile */
+    order: -1;
   }
 `;
 
@@ -46,6 +52,42 @@ export const SectionHeader = styled.h2`
   color: var(--color-primary-dark);
   border-bottom: 1px solid #eee;
   padding-bottom: 5px;
+`;
+
+export const AddressForm = styled.div`
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  margin-bottom: 30px;
+`;
+
+export const InputRow = styled.div`
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    gap: 15px;
+  }
+`;
+
+export const StyledInput = styled.input`
+  width: 100%;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+  background-color: ${(props) => (props.disabled ? "#eee" : "#fff")};
+  cursor: ${(props) => (props.disabled ? "not-allowed" : "text")};
+
+  &:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(252, 128, 25, 0.2);
+  }
 `;
 
 export const CartItem = styled.div`
@@ -90,6 +132,7 @@ export const SummaryLine = styled.div`
   font-weight: ${(props) => (props.$total ? "700" : "400")};
   color: ${(props) =>
     props.$total ? "var(--color-primary-dark)" : "var(--color-text-dark)"};
+  font-size: ${(props) => (props.$total ? "1.2rem" : "1rem")};
 
   span.value {
     font-weight: 700;
@@ -100,4 +143,10 @@ export const CheckoutButton = styled(PrimaryButton)`
   margin-top: 20px;
   padding: 15px;
   font-size: 1.1rem;
+  width: 100%;
+
+  &:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
 `;

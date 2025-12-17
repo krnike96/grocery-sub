@@ -1,9 +1,3 @@
-// We can typically import styles directly from the shared Auth components,
-// but sticking strictly to the directory rule:
-
-// --- NOTE: We will reuse common Auth styles defined in Login-style.js ---
-// In a large project, we would refactor AuthCard, Input, Button into a shared /components/common folder.
-// For now, we will import and extend or define only specific styles.
 import styled from "styled-components";
 import {
   AuthContainer,

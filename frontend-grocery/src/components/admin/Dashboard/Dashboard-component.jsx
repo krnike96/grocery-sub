@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import { Trash2, CheckCircle, Truck, Edit3, Save, X } from "lucide-react";
 import API from "../../../api/axios";
 import {
   AdminDashboardContainer,
@@ -11,17 +12,22 @@ import {
   Label,
   Input,
   Select,
-  Textarea,
   PrimaryButton,
+  TableContainer,
+  Table,
+  ActionButton,
 } from "./Dashboard-style";
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState("products");
+  const [activeTab, setActiveTab] = useState("orders");
+  const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [users, setUsers] = useState([]);
-  const [subscriptions, setSubscriptions] = useState([]);
 
-  // Form States
+  const [editStockId, setEditStockId] = useState(null);
+  const [newStockValue, setNewStockValue] = useState("");
+
   const [productData, setProductData] = useState({
     name: "",
     price: "",
@@ -37,34 +43,58 @@ const AdminDashboard = () => {
     desc: "",
   });
 
-  const fetchData = async () => {
+  const fetchAllData = async () => {
     try {
-      const [catRes, userRes] = await Promise.all([
+      const [ordRes, prodRes, catRes, userRes] = await Promise.all([
+        API.get("/orders"),
+        API.get("/products"),
         API.get("/categories/get-categories"),
         API.get("/users"),
       ]);
+      setOrders(ordRes.data);
+      setProducts(prodRes.data);
       setCategories(catRes.data);
       setUsers(userRes.data);
     } catch (err) {
-      toast.error("Error fetching admin data");
+      toast.error("Error fetching dashboard data");
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchAllData();
   }, [activeTab]);
+
+  const handleUpdateOrderStatus = async (id, status) => {
+    try {
+      await API.put(`/orders/${id}/status`, { status });
+      toast.success(`Order updated to ${status}`);
+      fetchAllData();
+    } catch (err) {
+      toast.error("Update failed");
+    }
+  };
+
+  const handleDeleteOrder = async (id) => {
+    if (window.confirm("Delete this order?")) {
+      try {
+        await API.delete(`/orders/${id}`);
+        toast.success("Order Deleted");
+        fetchAllData();
+      } catch (err) {
+        toast.error("Delete failed");
+      }
+    }
+  };
 
   const handleProductSubmit = async (e) => {
     e.preventDefault();
     try {
-      // Logic: Ensure price and stock are numbers
-      const payload = {
+      await API.post("/products", {
         ...productData,
         price: Number(productData.price),
         stock: Number(productData.stock),
-      };
-      await API.post("/products", payload);
-      toast.success("Product added successfully!");
+      });
+      toast.success("Product added!");
       setProductData({
         name: "",
         price: "",
@@ -74,19 +104,55 @@ const AdminDashboard = () => {
         image: "",
         description: "",
       });
+      fetchAllData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to add product");
+      toast.error("Failed to add product");
+    }
+  };
+
+  const handleUpdateStock = async (id) => {
+    try {
+      await API.put(`/products/${id}`, { stock: Number(newStockValue) });
+      toast.success("Stock updated");
+      setEditStockId(null);
+      fetchAllData();
+    } catch (err) {
+      toast.error("Stock update failed");
+    }
+  };
+
+  const deleteProductHandler = async (id) => {
+    if (window.confirm("Delete product?")) {
+      try {
+        await API.delete(`/products/${id}`);
+        toast.success("Product deleted");
+        fetchAllData();
+      } catch (err) {
+        toast.error("Delete failed");
+      }
+    }
+  };
+
+  const handleCategorySubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await API.post("/categories", categoryData);
+      toast.success("Category created");
+      setCategoryData({ name: "", image: "", desc: "" });
+      fetchAllData();
+    } catch (err) {
+      toast.error("Failed to create category");
     }
   };
 
   const deleteUserHandler = async (id) => {
-    if (window.confirm("Permanent Action: Delete this user?")) {
+    if (window.confirm("Permanently delete user?")) {
       try {
         await API.delete(`/users/${id}`);
-        toast.success("User removed");
-        fetchData();
+        toast.success("User deleted");
+        fetchAllData();
       } catch (err) {
-        toast.error("Authority error: Action denied");
+        toast.error("Cannot delete Admin or User not found");
       }
     }
   };
@@ -95,70 +161,174 @@ const AdminDashboard = () => {
     <AdminDashboardContainer>
       <TabContainer>
         <TabButton
-          active={activeTab === "products"}
+          $active={activeTab === "orders"}
+          onClick={() => setActiveTab("orders")}
+        >
+          Orders
+        </TabButton>
+        <TabButton
+          $active={activeTab === "products"}
           onClick={() => setActiveTab("products")}
         >
-          Add Product
+          Products & Stock
         </TabButton>
         <TabButton
-          active={activeTab === "categories"}
+          $active={activeTab === "categories"}
           onClick={() => setActiveTab("categories")}
         >
-          Manage Categories
+          Categories
         </TabButton>
         <TabButton
-          active={activeTab === "users"}
+          $active={activeTab === "users"}
           onClick={() => setActiveTab("users")}
         >
-          Authority (Users & Subs)
+          Users
         </TabButton>
       </TabContainer>
 
-      {activeTab === "products" && (
-        <FormCard>
-          <FormTitle>Add New Grocery Item</FormTitle>
-          <form onSubmit={handleProductSubmit}>
-            <FormGroup>
-              <Label>Product Name</Label>
-              <Input
-                type="text"
-                value={productData.name}
-                onChange={(e) =>
-                  setProductData({ ...productData, name: e.target.value })
-                }
-                required
-              />
-            </FormGroup>
-            <FormGroup>
-              <Label>Category</Label>
-              <Select
-                value={productData.category}
-                onChange={(e) =>
-                  setProductData({ ...productData, category: e.target.value })
-                }
-                required
-              >
-                <option value="">Select Existing Category</option>
-                {categories.map((c) => (
-                  <option key={c._id} value={c.name}>
-                    {c.name}
-                  </option>
+      {activeTab === "orders" && (
+        <FormCard style={{ maxWidth: "100%" }}>
+          <FormTitle>Live Order Management</FormTitle>
+          <TableContainer>
+            <Table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Customer</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order._id}>
+                    <td>{order._id.slice(-6)}</td>
+                    <td>{order.user?.name}</td>
+                    <td>₹{order.totalPrice}</td>
+                    <td>
+                      <span
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "20px",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                          background:
+                            order.status === "Delivered"
+                              ? "#3bff69ff"
+                              : "#e53d0fff",
+                          color:
+                            order.status === "Delivered"
+                              ? "#155724"
+                              : "#856404",
+                        }}
+                      >
+                        {order.status}
+                      </span>
+                    </td>
+                    <td>
+                      <ActionButton
+                        onClick={() =>
+                          handleUpdateOrderStatus(order._id, "Out for Delivery")
+                        }
+                        title="Ship"
+                      >
+                        <Truck size={18} />
+                      </ActionButton>
+                      <ActionButton
+                        onClick={() =>
+                          handleUpdateOrderStatus(order._id, "Delivered")
+                        }
+                        title="Complete"
+                        style={{ color: "green" }}
+                      >
+                        <CheckCircle size={18} />
+                      </ActionButton>
+                      <ActionButton
+                        className="delete"
+                        onClick={() => handleDeleteOrder(order._id)}
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </ActionButton>
+                    </td>
+                  </tr>
                 ))}
-              </Select>
-            </FormGroup>
-            <div style={{ display: "flex", gap: "10px" }}>
-              <FormGroup style={{ flex: 1 }}>
-                <Label>Price (₹)</Label>
+              </tbody>
+            </Table>
+          </TableContainer>
+        </FormCard>
+      )}
+
+      {activeTab === "products" && (
+        <>
+          <FormCard>
+            <FormTitle>Add New Product</FormTitle>
+            <form onSubmit={handleProductSubmit}>
+              <FormGroup>
+                <Label>Name</Label>
                 <Input
-                  type="number"
-                  value={productData.price}
+                  type="text"
+                  value={productData.name}
                   onChange={(e) =>
-                    setProductData({ ...productData, price: e.target.value })
+                    setProductData({ ...productData, name: e.target.value })
                   }
                   required
                 />
               </FormGroup>
-              <FormGroup style={{ flex: 1 }}>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <FormGroup style={{ flex: 1, minWidth: "150px" }}>
+                  <Label>Price</Label>
+                  <Input
+                    type="number"
+                    value={productData.price}
+                    onChange={(e) =>
+                      setProductData({ ...productData, price: e.target.value })
+                    }
+                    required
+                  />
+                </FormGroup>
+                <FormGroup style={{ flex: 1, minWidth: "150px" }}>
+                  <Label>Stock</Label>
+                  <Input
+                    type="number"
+                    value={productData.stock}
+                    onChange={(e) =>
+                      setProductData({ ...productData, stock: e.target.value })
+                    }
+                    required
+                  />
+                </FormGroup>
+              </div>
+              <FormGroup>
+                <Label>Category</Label>
+                <Select
+                  value={productData.category}
+                  onChange={(e) =>
+                    setProductData({ ...productData, category: e.target.value })
+                  }
+                  required
+                >
+                  <option value="">Select Category</option>
+                  {categories.map((c) => (
+                    <option key={c._id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </FormGroup>
+              <FormGroup>
+                <Label>Image URL</Label>
+                <Input
+                  type="text"
+                  value={productData.image}
+                  onChange={(e) =>
+                    setProductData({ ...productData, image: e.target.value })
+                  }
+                  required
+                />
+              </FormGroup>
+              <FormGroup>
                 <Label>Unit</Label>
                 <Input
                   type="text"
@@ -169,48 +339,101 @@ const AdminDashboard = () => {
                   required
                 />
               </FormGroup>
-            </div>
-            <FormGroup>
-              <Label>Initial Stock</Label>
-              <Input
-                type="number"
-                value={productData.stock}
-                onChange={(e) =>
-                  setProductData({ ...productData, stock: e.target.value })
-                }
-                required
-              />
-            </FormGroup>
-            <FormGroup>
-              <Label>Image URL</Label>
-              <Input
-                type="text"
-                value={productData.image}
-                onChange={(e) =>
-                  setProductData({ ...productData, image: e.target.value })
-                }
-                required
-              />
-            </FormGroup>
-            <PrimaryButton type="submit">Save Product</PrimaryButton>
-          </form>
-        </FormCard>
+              <PrimaryButton type="submit">Add Product</PrimaryButton>
+            </form>
+          </FormCard>
+
+          <FormCard style={{ maxWidth: "100%", marginTop: "30px" }}>
+            <FormTitle>Inventory Management</FormTitle>
+            <TableContainer>
+              <Table>
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Stock Level</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map((p) => (
+                    <tr key={p._id}>
+                      <td style={{ fontWeight: "bold" }}>{p.name}</td>
+                      <td>{p.category}</td>
+                      <td>
+                        {editStockId === p._id ? (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "5px",
+                            }}
+                          >
+                            <Input
+                              type="number"
+                              autoFocus
+                              style={{
+                                width: "80px",
+                                padding: "8px",
+                                height: "36px",
+                                marginBottom: 0,
+                              }}
+                              value={newStockValue}
+                              onChange={(e) => setNewStockValue(e.target.value)}
+                            />
+                            <ActionButton
+                              className="save"
+                              onClick={() => handleUpdateStock(p._id)}
+                            >
+                              <Save size={18} />
+                            </ActionButton>
+                            <ActionButton onClick={() => setEditStockId(null)}>
+                              <X size={18} />
+                            </ActionButton>
+                          </div>
+                        ) : (
+                          <span
+                            style={{
+                              color: p.stock < 10 ? "red" : "inherit",
+                              fontWeight: p.stock < 10 ? "bold" : "normal",
+                            }}
+                          >
+                            {p.stock} units
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <ActionButton
+                          className="edit"
+                          onClick={() => {
+                            setEditStockId(p._id);
+                            setNewStockValue(p.stock);
+                          }}
+                        >
+                          <Edit3 size={18} />
+                        </ActionButton>
+                        <ActionButton
+                          className="delete"
+                          onClick={() => deleteProductHandler(p._id)}
+                        >
+                          <Trash2 size={18} />
+                        </ActionButton>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+          </FormCard>
+        </>
       )}
 
       {activeTab === "categories" && (
         <FormCard>
           <FormTitle>Create Category</FormTitle>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              API.post("/categories", categoryData).then(() => {
-                toast.success("Created");
-                fetchData();
-              });
-            }}
-          >
+          <form onSubmit={handleCategorySubmit}>
             <FormGroup>
-              <Label>Category Name</Label>
+              <Label>Name</Label>
               <Input
                 type="text"
                 value={categoryData.name}
@@ -231,52 +454,66 @@ const AdminDashboard = () => {
                 required
               />
             </FormGroup>
-            <PrimaryButton type="submit">Add Category</PrimaryButton>
+            <FormGroup>
+              <Label>Description</Label>
+              <Input
+                type="text"
+                value={categoryData.desc}
+                onChange={(e) =>
+                  setCategoryData({ ...categoryData, desc: e.target.value })
+                }
+              />
+            </FormGroup>
+            <PrimaryButton type="submit">Create Category</PrimaryButton>
           </form>
         </FormCard>
       )}
 
       {activeTab === "users" && (
-        <FormCard>
-          <FormTitle>Authority Panel</FormTitle>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ textAlign: "left", background: "#f4f4f4" }}>
-                <th style={{ padding: "10px" }}>User</th>
-                <th style={{ padding: "10px" }}>Role</th>
-                <th style={{ padding: "10px" }}>Authority Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u._id} style={{ borderBottom: "1px solid #eee" }}>
-                  <td style={{ padding: "10px" }}>
-                    {u.name}
-                    <br />
-                    <small>{u.email}</small>
-                  </td>
-                  <td style={{ padding: "10px" }}>
-                    {u.isAdmin ? "👑 Admin" : "User"}
-                  </td>
-                  <td style={{ padding: "10px" }}>
-                    <button
-                      onClick={() => deleteUserHandler(u._id)}
-                      style={{
-                        background: "#ff4d4d",
-                        color: "white",
-                        border: "none",
-                        padding: "5px 10px",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Delete User
-                    </button>
-                  </td>
+        <FormCard style={{ maxWidth: "100%" }}>
+          <FormTitle>Registered Users</FormTitle>
+          <TableContainer>
+            <Table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u._id}>
+                    <td>{u.name}</td>
+                    <td>{u.email}</td>
+                    <td>
+                      {u.isAdmin ? (
+                        <span
+                          style={{
+                            color: "var(--color-primary)",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          Admin
+                        </span>
+                      ) : (
+                        "User"
+                      )}
+                    </td>
+                    <td>
+                      <ActionButton
+                        className="delete"
+                        onClick={() => deleteUserHandler(u._id)}
+                      >
+                        <Trash2 size={18} />
+                      </ActionButton>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableContainer>
         </FormCard>
       )}
     </AdminDashboardContainer>

@@ -7,21 +7,43 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Check for saved user session on app load
+  // Function to sync latest user data from DB
+  const fetchUserProfile = async (token) => {
+    try {
+      API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      const { data } = await API.get("/users/profile");
+      // Merge the fresh data with the existing token
+      const updatedUser = { ...data, token };
+      setUser(updatedUser);
+      localStorage.setItem("userInfo", JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error("Failed to sync user profile", error);
+      // If token is invalid or request fails, logout
+      logout();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const savedUser = localStorage.getItem("userInfo");
     if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
-      // Set the token for all future API calls
-      API.defaults.headers.common[
-        "Authorization"
-      ] = `Bearer ${parsedUser.token}`;
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        if (parsedUser && parsedUser.token) {
+          fetchUserProfile(parsedUser.token);
+        } else {
+          setLoading(false);
+        }
+      } catch (e) {
+        setLoading(false);
+        localStorage.removeItem("userInfo");
+      }
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  // Login API Call
   const login = async (email, password) => {
     const { data } = await API.post("/users/login", { email, password });
     setUser(data);
@@ -30,13 +52,26 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  // Register API Call
-  const register = async (name, email, password) => {
-    const { data } = await API.post("/users", { name, email, password });
+  /**
+   * UPDATED: register now accepts a userData object
+   * to handle name, email, password, isAdmin, and defaultAddress
+   */
+  const register = async (userData) => {
+    // userData contains { name, email, password, isAdmin, defaultAddress }
+    const { data } = await API.post("/users", userData);
+
     setUser(data);
     localStorage.setItem("userInfo", JSON.stringify(data));
     API.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
     return data;
+  };
+
+  const updateProfile = async (profileData) => {
+    const { data } = await API.put("/users/profile", profileData);
+    const updatedUser = { ...data, token: user.token };
+    setUser(updatedUser);
+    localStorage.setItem("userInfo", JSON.stringify(updatedUser));
+    return updatedUser;
   };
 
   const logout = () => {
@@ -52,8 +87,9 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        updateProfile,
         isAuthenticated: !!user,
-        userRole: user?.isAdmin ? "admin" : "user", // Basic role mapping
+        userRole: user?.isAdmin ? "admin" : "user",
         loading,
       }}
     >
