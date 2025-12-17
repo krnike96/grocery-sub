@@ -21,7 +21,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // Real Login API Call
+  // Login API Call
   const login = async (email, password) => {
     const { data } = await API.post("/users/login", { email, password });
     setUser(data);
@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  // Real Register API Call
+  // Register API Call
   const register = async (name, email, password) => {
     const { data } = await API.post("/users", { name, email, password });
     setUser(data);
