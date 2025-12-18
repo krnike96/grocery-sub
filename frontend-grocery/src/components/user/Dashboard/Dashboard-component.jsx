@@ -12,8 +12,6 @@ import { useAuth } from "../../../context/AuthContext";
 import { useCart } from "../../../context/CartContext";
 import API from "../../../api/axios";
 import { offers } from "../../../data/groceryData";
-
-// Import styles
 import * as Styled from "./Dashboard-style";
 
 const UserDashboard = () => {
@@ -23,12 +21,12 @@ const UserDashboard = () => {
   const [dbCategories, setDbCategories] = useState([]);
   const [userSubscriptions, setUserSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedFrequencies, setSelectedFrequencies] = useState({});
 
   const navigate = useNavigate();
   const { isAuthenticated, userRole } = useAuth();
   const { addToCart, cart } = useCart();
 
-  // 1. Fetch Store Data and Subscriptions
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
@@ -61,26 +59,9 @@ const UserDashboard = () => {
     fetchInitialData();
   }, [isAuthenticated]);
 
-  // 2. Sync Subscriptions when switching tabs
-  useEffect(() => {
-    if (activeTab === "subscriptions" && isAuthenticated) {
-      const fetchSubs = async () => {
-        try {
-          const { data } = await API.get("/orders/my-subscriptions");
-          setUserSubscriptions(data);
-        } catch (err) {
-          console.error("Sub Fetch Error:", err);
-        }
-      };
-      fetchSubs();
-    }
-  }, [activeTab, isAuthenticated]);
-
-  const filteredProducts = selectedCategory
-    ? dbProducts.filter(
-        (p) => p.category.toLowerCase() === selectedCategory.name.toLowerCase()
-      )
-    : [];
+  const handleFrequencyChange = (productId, freq) => {
+    setSelectedFrequencies((prev) => ({ ...prev, [productId]: freq }));
+  };
 
   const handleAction = (item, type) => {
     if (!isAuthenticated) {
@@ -99,7 +80,6 @@ const UserDashboard = () => {
         (i) => i.product === item._id
       );
       const currentQty = currentInCart ? currentInCart.qty : 0;
-
       if (currentQty + 1 > item.stock) {
         toast.error(`Only ${item.stock} units available.`);
         return;
@@ -107,12 +87,12 @@ const UserDashboard = () => {
       addToCart(item, "once");
       toast.success(`${item.name} added to cart!`);
     } else {
-      addToCart(item, "sub");
-      toast.success(`${item.name} added to subscriptions!`);
+      const freq = selectedFrequencies[item._id] || "Daily";
+      addToCart(item, "sub", freq);
+      toast.success(`${item.name} added as ${freq} subscription!`);
     }
   };
 
-  // UPDATED LOGIC FOR STEP #3: DELETE INSTEAD OF STATUS UPDATE
   const handleCancelSub = async (subId) => {
     if (
       window.confirm(
@@ -120,12 +100,8 @@ const UserDashboard = () => {
       )
     ) {
       try {
-        // Updated to DELETE method as per route changes
         await API.delete(`/orders/subscription/${subId}/cancel`);
-
         toast.success("Subscription removed");
-
-        // Remove from local state immediately to sync UI
         setUserSubscriptions((prev) => prev.filter((s) => s._id !== subId));
       } catch (err) {
         toast.error(err.response?.data?.message || "Failed to cancel");
@@ -140,9 +116,14 @@ const UserDashboard = () => {
       </div>
     );
 
+  const filteredProducts = selectedCategory
+    ? dbProducts.filter(
+        (p) => p.category.toLowerCase() === selectedCategory.name.toLowerCase()
+      )
+    : [];
+
   return (
     <Styled.DashboardContainer>
-      {/* Navigation Tabs */}
       <Styled.TabContainer>
         <Styled.TabButton
           $active={activeTab === "shop"}
@@ -153,8 +134,6 @@ const UserDashboard = () => {
         >
           <ShoppingCart size={18} /> Shop Groceries
         </Styled.TabButton>
-
-        {/* Only show My Subscriptions for non-admins if they are logged in */}
         {isAuthenticated && userRole !== "admin" && (
           <Styled.TabButton
             $active={activeTab === "subscriptions"}
@@ -222,6 +201,42 @@ const UserDashboard = () => {
                           : "Out of Stock"}
                       </div>
                     </Styled.ProductInfo>
+
+                    <div
+                      style={{
+                        padding: "0 15px 10px",
+                        display: "flex",
+                        gap: "8px",
+                      }}
+                    >
+                      <label
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: "600",
+                          color: "#666",
+                          alignSelf: "center",
+                        }}
+                      >
+                        Plan:
+                      </label>
+                      <select
+                        value={selectedFrequencies[item._id] || "Daily"}
+                        onChange={(e) =>
+                          handleFrequencyChange(item._id, e.target.value)
+                        }
+                        style={{
+                          flex: 1,
+                          padding: "4px",
+                          fontSize: "0.8rem",
+                          border: "1px solid #ddd",
+                          borderRadius: "4px",
+                        }}
+                      >
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                      </select>
+                    </div>
+
                     <Styled.ActionButtons>
                       <button
                         className="add-btn"

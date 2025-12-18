@@ -2,9 +2,7 @@ import User from "../models/userModel.js";
 import generateToken from "../utils/generateToken.js";
 
 export const registerUser = async (req, res) => {
-  // Capture the full set of registration data
   const { name, email, password, isAdmin, defaultAddress } = req.body;
-
   const userExists = await User.findOne({ email });
 
   if (userExists) {
@@ -13,13 +11,13 @@ export const registerUser = async (req, res) => {
       .json({ success: false, message: "User already exists" });
   }
 
-  // Create user with explicit isAdmin and address fields
   const user = await User.create({
     name,
     email,
     password,
     isAdmin: isAdmin || false,
     defaultAddress: defaultAddress || { address: "", city: "", postalCode: "" },
+    cart: { orderItems: [], subscriptions: [] },
   });
 
   if (user) {
@@ -127,15 +125,23 @@ export const updateUserProfile = async (req, res) => {
 
 export const getCart = async (req, res) => {
   const user = await User.findById(req.user._id);
-  res.json(user.cart || { orderItems: [], subscriptions: [] });
+  if (user) {
+    res.json(user.cart || { orderItems: [], subscriptions: [] });
+  } else {
+    res.status(404).json({ message: "User not found" });
+  }
 };
-
 export const saveCart = async (req, res) => {
   const user = await User.findById(req.user._id);
   if (user) {
-    user.cart = req.body;
-    await user.save();
-    res.json({ message: "Cart saved" });
+    // Fix: Basic validation to prevent saving null/undefined
+    if (req.body && (req.body.orderItems || req.body.subscriptions)) {
+      user.cart = req.body;
+      await user.save();
+      res.json({ message: "Cart saved" });
+    } else {
+      res.status(400).json({ message: "Invalid cart data" });
+    }
   } else {
     res.status(404).json({ message: "User not found" });
   }

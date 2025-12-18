@@ -5,22 +5,7 @@ import { Trash2, Plus, Minus, Home, MapPin, ShoppingCart } from "lucide-react";
 import API from "../../../api/axios";
 import { useCart } from "../../../context/CartContext";
 import { useAuth } from "../../../context/AuthContext";
-import {
-  CheckoutContainer,
-  Title,
-  ContentWrapper,
-  CartDetails,
-  SummaryCard,
-  SectionHeader,
-  CartItem,
-  ItemInfo,
-  ItemPrice,
-  SummaryLine,
-  CheckoutButton,
-  AddressForm,
-  InputRow,
-  StyledInput,
-} from "./Checkout-style";
+import * as S from "./Checkout-style";
 
 const CheckoutPage = () => {
   const { cart, updateQty, removeFromCart, clearCart } = useCart();
@@ -34,7 +19,6 @@ const CheckoutPage = () => {
     postalCode: "",
   });
 
-  // Sync address with default or clear it
   useEffect(() => {
     if (useDefault && user?.defaultAddress) {
       setShippingAddress({
@@ -47,7 +31,6 @@ const CheckoutPage = () => {
     }
   }, [user, useDefault]);
 
-  // If the cart is cleared (after successful order), we show this view
   const isCartEmpty =
     cart.orderItems.length === 0 && cart.subscriptions.length === 0;
 
@@ -56,7 +39,7 @@ const CheckoutPage = () => {
       cart.orderItems.reduce((acc, i) => acc + i.price * i.qty, 0) +
       cart.subscriptions.reduce((acc, i) => acc + i.price, 0);
     const shipping = subtotal > 499 || subtotal === 0 ? 0 : 40;
-    const tax = subtotal * 0.05; // 5% GST
+    const tax = subtotal * 0.05;
     return { subtotal, shipping, tax, grandTotal: subtotal + shipping + tax };
   })();
 
@@ -82,13 +65,8 @@ const CheckoutPage = () => {
         if (!useDefault) {
           await updateProfile({ defaultAddress: shippingAddress });
         }
-
         toast.success("Order placed successfully!");
-
-        // Clear the cart first
         clearCart();
-
-        // Delay navigation slightly so user sees success and page doesn't glitch
         setTimeout(() => {
           navigate("/user-dashboard");
         }, 1500);
@@ -102,23 +80,24 @@ const CheckoutPage = () => {
     user?.defaultAddress?.address && user?.defaultAddress?.city
   );
 
-  // Fallback UI when cart is empty (prevents blank page after clearCart)
   if (isCartEmpty) {
     return (
-      <CheckoutContainer style={{ textAlign: "center", padding: "100px 20px" }}>
+      <S.CheckoutContainer
+        style={{ textAlign: "center", padding: "100px 20px" }}
+      >
         <ShoppingCart
           size={64}
           style={{ color: "#ccc", marginBottom: "20px" }}
         />
-        <Title>Your Cart is Empty</Title>
+        <S.Title>Your Cart is Empty</S.Title>
         <p style={{ marginBottom: "30px", color: "#666" }}>
-          Looks like you haven't added anything to your cart yet.
+          Looks like you haven't added anything yet.
         </p>
         <Link
           to="/"
           style={{
             padding: "12px 24px",
-            background: "var(--color-primary, #28a745)",
+            background: "#28a745",
             color: "#fff",
             borderRadius: "8px",
             textDecoration: "none",
@@ -127,16 +106,16 @@ const CheckoutPage = () => {
         >
           Return to Shop
         </Link>
-      </CheckoutContainer>
+      </S.CheckoutContainer>
     );
   }
 
   return (
-    <CheckoutContainer>
-      <Title>Checkout Summary</Title>
-      <ContentWrapper>
-        <CartDetails>
-          <SectionHeader>Delivery Address</SectionHeader>
+    <S.CheckoutContainer>
+      <S.Title>Checkout Summary</S.Title>
+      <S.ContentWrapper>
+        <S.CartDetails>
+          <S.SectionHeader>Delivery Address</S.SectionHeader>
           <div style={{ marginBottom: "20px", display: "flex", gap: "20px" }}>
             <button
               type="button"
@@ -176,10 +155,10 @@ const CheckoutPage = () => {
             </button>
           </div>
 
-          <AddressForm>
-            <InputRow>
-              <StyledInput
-                placeholder="Address / House No / Street"
+          <S.AddressForm>
+            <S.InputRow>
+              <S.StyledInput
+                placeholder="Address"
                 value={shippingAddress.address}
                 onChange={(e) =>
                   setShippingAddress({
@@ -189,9 +168,9 @@ const CheckoutPage = () => {
                 }
                 disabled={useDefault}
               />
-            </InputRow>
-            <InputRow>
-              <StyledInput
+            </S.InputRow>
+            <S.InputRow>
+              <S.StyledInput
                 placeholder="City"
                 value={shippingAddress.city}
                 disabled={useDefault}
@@ -202,7 +181,7 @@ const CheckoutPage = () => {
                   })
                 }
               />
-              <StyledInput
+              <S.StyledInput
                 placeholder="Pincode"
                 value={shippingAddress.postalCode}
                 disabled={useDefault}
@@ -213,20 +192,13 @@ const CheckoutPage = () => {
                   })
                 }
               />
-            </InputRow>
-            {useDefault && !hasDefaultAddress && (
-              <p style={{ color: "red", fontSize: "13px", marginTop: "5px" }}>
-                No default address found in your profile. Please use "New
-                Address".
-              </p>
-            )}
-          </AddressForm>
+            </S.InputRow>
+          </S.AddressForm>
 
-          <SectionHeader>Review Items</SectionHeader>
-
+          <S.SectionHeader>Review Items</S.SectionHeader>
           {cart.orderItems.map((item) => (
-            <CartItem key={item.product}>
-              <ItemInfo>
+            <S.CartItem key={item.product}>
+              <S.ItemInfo>
                 <h4>{item.name}</h4>
                 <div
                   style={{
@@ -236,17 +208,11 @@ const CheckoutPage = () => {
                     marginTop: "8px",
                   }}
                 >
-                  <button
-                    onClick={() => updateQty(item.product, -1)}
-                    style={{ padding: "2px 6px" }}
-                  >
+                  <button onClick={() => updateQty(item.product, -1)}>
                     <Minus size={14} />
                   </button>
                   <span>{item.qty}</span>
-                  <button
-                    onClick={() => updateQty(item.product, 1)}
-                    style={{ padding: "2px 6px" }}
-                  >
+                  <button onClick={() => updateQty(item.product, 1)}>
                     <Plus size={14} />
                   </button>
                   <Trash2
@@ -256,40 +222,52 @@ const CheckoutPage = () => {
                     style={{ cursor: "pointer", marginLeft: "10px" }}
                   />
                 </div>
-              </ItemInfo>
-              <ItemPrice>₹{(item.price * item.qty).toFixed(2)}</ItemPrice>
-            </CartItem>
+              </S.ItemInfo>
+              <S.ItemPrice>₹{(item.price * item.qty).toFixed(2)}</S.ItemPrice>
+            </S.CartItem>
           ))}
 
           {cart.subscriptions.map((item) => (
-            <CartItem key={item.product}>
-              <ItemInfo $isSub>
-                <h4>{item.name} (Subscription)</h4>
-                <p>Plan: {item.plan}</p>
-              </ItemInfo>
-              <ItemPrice>₹{item.price.toFixed(2)}</ItemPrice>
-            </CartItem>
+            <S.CartItem key={item.product}>
+              <S.ItemInfo $isSub>
+                <h4>{item.name}</h4>
+                <p style={{ color: "#28a745", fontWeight: "bold" }}>
+                  Plan: {item.frequency}
+                </p>
+              </S.ItemInfo>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
+                <S.ItemPrice>₹{item.price.toFixed(2)}</S.ItemPrice>
+                <Trash2
+                  size={18}
+                  color="red"
+                  onClick={() => removeFromCart(item.product, "sub")}
+                  style={{ cursor: "pointer" }}
+                />
+              </div>
+            </S.CartItem>
           ))}
-        </CartDetails>
+        </S.CartDetails>
 
-        <SummaryCard>
-          <SectionHeader>Price Details</SectionHeader>
-          <SummaryLine>
+        <S.SummaryCard>
+          <S.SectionHeader>Price Details</S.SectionHeader>
+          <S.SummaryLine>
             <span>Subtotal</span>
             <span>₹{totals.subtotal.toFixed(2)}</span>
-          </SummaryLine>
-          <SummaryLine>
+          </S.SummaryLine>
+          <S.SummaryLine>
             <span>GST (5%)</span>
             <span>₹{totals.tax.toFixed(2)}</span>
-          </SummaryLine>
-          <SummaryLine>
+          </S.SummaryLine>
+          <S.SummaryLine>
             <span>Delivery Charges</span>
             <span
               style={{ color: totals.shipping === 0 ? "green" : "inherit" }}
             >
               {totals.shipping === 0 ? "FREE" : `₹${totals.shipping}`}
             </span>
-          </SummaryLine>
+          </S.SummaryLine>
           <hr
             style={{
               border: "none",
@@ -297,19 +275,19 @@ const CheckoutPage = () => {
               margin: "15px 0",
             }}
           />
-          <SummaryLine $total>
+          <S.SummaryLine $total>
             <span>Amount Payable</span>
             <span>₹{totals.grandTotal.toFixed(2)}</span>
-          </SummaryLine>
-          <CheckoutButton
+          </S.SummaryLine>
+          <S.CheckoutButton
             onClick={handleCheckout}
             disabled={isCartEmpty || (useDefault && !hasDefaultAddress)}
           >
             Confirm Order & Pay
-          </CheckoutButton>
-        </SummaryCard>
-      </ContentWrapper>
-    </CheckoutContainer>
+          </S.CheckoutButton>
+        </S.SummaryCard>
+      </S.ContentWrapper>
+    </S.CheckoutContainer>
   );
 };
 

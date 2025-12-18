@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import { toast } from "react-toastify";
 import API from "../api/axios";
 import { useAuth } from "./AuthContext";
@@ -7,22 +13,28 @@ const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState({ orderItems: [], subscriptions: [] });
+  const [isLoaded, setIsLoaded] = useState(false); // New flag to track loading
   const { user } = useAuth();
+  const isInitialMount = useRef(true);
 
-  // 1. Fetch cart from DB on login
+  // 1. Fetch initial cart (Local or DB)
   useEffect(() => {
     const fetchCart = async () => {
       if (user) {
         try {
           const { data } = await API.get("/users/cart");
-          if (data) setCart(data);
+          if (data && (data.orderItems || data.subscriptions)) {
+            setCart(data);
+          }
         } catch (err) {
           console.error("Failed to fetch cart from server");
+        } finally {
+          setIsLoaded(true); // Cart is fetched or failed, now ready to sync
         }
       } else {
-        // Fallback to local storage for guests
         const savedCart = localStorage.getItem("cart");
         if (savedCart) setCart(JSON.parse(savedCart));
+        setIsLoaded(true);
       }
     };
     fetchCart();
@@ -30,6 +42,9 @@ export const CartProvider = ({ children }) => {
 
   // 2. Sync cart to DB and LocalStorage on changes
   useEffect(() => {
+    // PREVENT OVERWRITE: Don't sync until the initial fetch is complete
+    if (!isLoaded) return;
+
     const syncCart = async () => {
       localStorage.setItem("cart", JSON.stringify(cart));
       if (user) {
@@ -40,10 +55,13 @@ export const CartProvider = ({ children }) => {
         }
       }
     };
-    syncCart();
-  }, [cart, user]);
 
-  const addToCart = (item, type) => {
+    // Debounce or small delay can be added here if needed
+    const timeoutId = setTimeout(syncCart, 500);
+    return () => clearTimeout(timeoutId);
+  }, [cart, user, isLoaded]);
+
+  const addToCart = (item, type, frequency = "Daily") => {
     setCart((prev) => {
       if (type === "once") {
         const exist = prev.orderItems.find((i) => i.product === item._id);
@@ -91,7 +109,7 @@ export const CartProvider = ({ children }) => {
               name: item.name,
               price: item.price,
               image: item.image,
-              frequency: "Daily",
+              frequency: frequency,
             },
           ],
         };
@@ -125,7 +143,10 @@ export const CartProvider = ({ children }) => {
     }));
   };
 
-  const clearCart = () => setCart({ orderItems: [], subscriptions: [] });
+  const clearCart = () => {
+    setCart({ orderItems: [], subscriptions: [] });
+    localStorage.removeItem("cart");
+  };
 
   return (
     <CartContext.Provider
@@ -135,7 +156,8 @@ export const CartProvider = ({ children }) => {
         updateQty,
         removeFromCart,
         clearCart,
-        cartCount: cart.orderItems.length + cart.subscriptions.length,
+        cartCount:
+          (cart?.orderItems?.length || 0) + (cart?.subscriptions?.length || 0),
       }}
     >
       {children}
