@@ -154,7 +154,7 @@ const UserDashboard = () => {
                   Use code <strong>{offers[0].code}</strong> to {offers[0].desc}
                 </p>
               </Styled.HeroText>
-              <div style={{ fontSize: "60px" }}>🔥</div>
+              <div style={{ fontSize: "70px" }}>⚡🛒</div>
             </Styled.HeroSection>
           )}
 
