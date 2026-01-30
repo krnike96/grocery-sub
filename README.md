@@ -1,4 +1,4 @@
-# 🥦 GrocerySub - Subscription-Based Grocery Delivery System
+# GrocerySub - Subscription-Based Grocery Delivery System
 
 A full-stack MERN application that enables users to order groceries for one-time delivery or subscribe to recurring deliveries with flexible frequency options (Daily/Weekly).
 
